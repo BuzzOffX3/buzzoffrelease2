@@ -102,6 +102,11 @@ flutter:
     - images/tips13.png
     - images/edit.jpg
     - images/back.jpg
+    - images/howto_circles.png
+    - images/howto_controls.png
+    - images/howto_toggle.png
+    - images/howto_warning.png
+
     
 
   # An image asset can refer to one or more resolution-specific "variants", see

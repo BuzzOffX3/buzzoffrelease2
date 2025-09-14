@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'complains.dart';
 import 'analytics.dart';
 import 'EditProfile.dart';
+import 'Fines&payments.dart';
 
 // ====== Small model for resolved case points ======
 class CasePoint {
@@ -980,7 +981,7 @@ class _MapsPageState extends State<MapsPage> {
     final selected = [_useProfileAddress == false, _useProfileAddress == true];
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(255, 0, 0, 0),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -1055,10 +1056,13 @@ class _MapsPageState extends State<MapsPage> {
                     ),
                   ),
                   _NavIcon(
-                    label: 'Fines',
+                    label: 'Help',
                     asset: 'fines_and_payments',
                     isSelected: false,
-                    onTap: () {},
+                    onTap: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MapHowToPage()),
+                    ),
                   ),
                 ],
               ),
@@ -1125,7 +1129,10 @@ class _MapsPageState extends State<MapsPage> {
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
                             t,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       )

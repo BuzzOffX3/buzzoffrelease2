@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math'; // for session token
 import 'dart:io';
 
+import 'package:buzzoff/Citizens/Fines&payments.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -542,10 +543,15 @@ class _ComplainsPageState extends State<ComplainsPage> {
                     },
                   ),
                   _NavIcon(
-                    label: 'Fines',
+                    label: 'Help',
                     asset: 'fines_and_payments',
                     isSelected: false,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MapHowToPage()),
+                      );
+                    },
                   ),
                 ],
               ),

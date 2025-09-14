@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import 'MapsPage.dart';
 import 'complains.dart';
+import 'Fines&payments.dart';
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
@@ -163,7 +164,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       label: 'Fines',
                       asset: 'fines_and_payments',
                       isSelected: false,
-                      onTap: () {},
+                      onTap: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MapHowToPage()),
+                      ),
                     ),
                   ],
                 ),
