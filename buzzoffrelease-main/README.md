@@ -18,5 +18,3 @@ samples, guidance on mobile development, and a full API reference.
 # buzzoffrelease
 # BuzzOffApp
 # BuzzOffApp
-# BuzzOffMobile
-# BuzzOffrelease
