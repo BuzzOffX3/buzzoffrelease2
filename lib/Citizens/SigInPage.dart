@@ -39,7 +39,7 @@ class _SignInPageState extends State<SignInPage> {
       );
 
       final user = credential.user!;
-      // Force refresh claims to be safe
+      // Force refresh claims
       final idToken = await user.getIdTokenResult(true);
       String? role = (idToken.claims?['role'] as String?);
 
@@ -52,16 +52,15 @@ class _SignInPageState extends State<SignInPage> {
         }
       }
 
+      if (!mounted) return;
       if (role == 'citizen') {
-        // ✅ Citizens go to the mobile app (Maps)
-        if (!mounted) return;
+        // Citizens: go to Maps
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const MapsPage()),
         );
       } else {
-        // 🚫 Everyone else gets a “Use the web app” page
-        if (!mounted) return;
+        // Others: show migrate-to-web
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -124,20 +123,29 @@ class _SignInPageState extends State<SignInPage> {
                   ),
                 ),
                 const SizedBox(height: 30),
+
+                // ---- EMAIL ----
                 TextField(
+                  key: const Key('emailField'), // <- added key
                   controller: emailController,
                   style: const TextStyle(color: Colors.black),
                   decoration: _inputStyle('Email'),
                 ),
                 const SizedBox(height: 16),
+
+                // ---- PASSWORD ----
                 TextField(
+                  key: const Key('passwordField'), // <- added key
                   controller: passwordController,
                   obscureText: true,
                   style: const TextStyle(color: Colors.black),
                   decoration: _inputStyle('Password'),
                 ),
                 const SizedBox(height: 30),
+
+                // ---- SIGN IN BUTTON ----
                 ElevatedButton(
+                  key: const Key('signInBtn'), // <- added key
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8B5FBF),
                     minimumSize: const Size(double.infinity, 50),
@@ -147,6 +155,7 @@ class _SignInPageState extends State<SignInPage> {
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('Sign In'),
                 ),
+
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: () {

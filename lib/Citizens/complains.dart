@@ -17,6 +17,7 @@ import 'package:http/http.dart' as http;
 import 'MapsPage.dart';
 import 'analytics.dart';
 import 'SigInPage.dart';
+import 'EditProfile.dart';
 
 class ComplainsPage extends StatefulWidget {
   const ComplainsPage({super.key});
@@ -479,7 +480,7 @@ class _ComplainsPageState extends State<ComplainsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
+              // ===== Header (now with profile menu) =====
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -502,13 +503,25 @@ class _ComplainsPageState extends State<ComplainsPage> {
                         _username,
                         style: const TextStyle(color: Colors.white),
                       ),
+                      const SizedBox(width: 4),
+                      _ProfileMenu(
+                        onEdit: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const EditAccountPage(),
+                            ),
+                          );
+                        },
+                        onSignOut: () => _signOutAndGoToLogin(context),
+                      ),
                     ],
                   ),
                 ],
               ),
               const SizedBox(height: 25),
 
-              // Navigation Row
+              // ===== Navigation Row =====
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -544,7 +557,8 @@ class _ComplainsPageState extends State<ComplainsPage> {
                   ),
                   _NavIcon(
                     label: 'Help',
-                    asset: 'fines_and_payments',
+                    asset:
+                        'help', // ← changed from 'fines_and_payments' to 'help'
                     isSelected: false,
                     onTap: () {
                       Navigator.pushReplacement(
@@ -569,7 +583,7 @@ class _ComplainsPageState extends State<ComplainsPage> {
               ),
               const SizedBox(height: 15),
 
-              // Image Picker
+              // ===== Image Picker =====
               GestureDetector(
                 onTap: () => _showImagePickerOptions(context),
                 child: Container(
@@ -601,7 +615,7 @@ class _ComplainsPageState extends State<ComplainsPage> {
               ),
               const SizedBox(height: 15),
 
-              // MOH Area (Autocomplete)
+              // ===== MOH Area (Autocomplete) =====
               _MohAutocomplete(
                 label: 'MOH Area (Colombo District)',
                 areas: _mohAreas,
@@ -611,7 +625,7 @@ class _ComplainsPageState extends State<ComplainsPage> {
               ),
               const SizedBox(height: 15),
 
-              // Description Field
+              // ===== Description =====
               TextField(
                 controller: _descriptionController,
                 maxLines: 5,
@@ -627,7 +641,7 @@ class _ComplainsPageState extends State<ComplainsPage> {
               ),
               const SizedBox(height: 15),
 
-              // Location box — editable with inline Places Autocomplete
+              // ===== Location with inline autocomplete =====
               CompositedTransformTarget(
                 link: _locFieldLink,
                 child: TextField(
@@ -652,7 +666,7 @@ class _ComplainsPageState extends State<ComplainsPage> {
               ),
               const SizedBox(height: 10),
 
-              // Anonymous Checkbox
+              // ===== Anonymous Checkbox =====
               Row(
                 children: [
                   Checkbox(
@@ -669,7 +683,7 @@ class _ComplainsPageState extends State<ComplainsPage> {
               ),
               const SizedBox(height: 20),
 
-              // Submit Button
+              // ===== Submit Button =====
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

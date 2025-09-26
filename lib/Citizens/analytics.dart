@@ -1,3 +1,5 @@
+// analytics.dart
+import 'package:buzzoff/Citizens/Fines&payments.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,7 +8,9 @@ import 'package:intl/intl.dart';
 
 import 'MapsPage.dart';
 import 'complains.dart';
-import 'Fines&payments.dart';
+import 'Fines&payments.dart'; // ← Help page
+import 'EditProfile.dart'; // ← Edit profile screen
+import 'package:buzzoff/Citizens/SigInPage.dart'; // ← For sign out nav
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
@@ -23,6 +27,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   int _rangeDays = 90; // 30 or 90
   bool _showMA = false;
 
+  // prevent flicker of placeholders before user doc arrives
+  bool _ready = false;
+
   @override
   void initState() {
     super.initState();
@@ -31,7 +38,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
   Future<void> _bootstrap() async {
     await _fetchUser();
-    setState(() {});
+    if (mounted) setState(() => _ready = true);
   }
 
   Future<void> _fetchUser() async {
@@ -83,7 +90,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ---- Header
+                // ---- Header (with profile menu)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -106,22 +113,17 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                           _username,
                           style: const TextStyle(color: Colors.white),
                         ),
-                        PopupMenuButton<String>(
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Colors.white,
-                          ),
-                          color: Colors.grey[900],
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Edit Profile'),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Delete Profile'),
-                            ),
-                          ],
+                        const SizedBox(width: 4),
+                        _ProfileMenu(
+                          onEdit: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const EditAccountPage(),
+                              ),
+                            );
+                          },
+                          onSignOut: () => _signOutAndGoToLogin(context),
                         ),
                       ],
                     ),
@@ -161,8 +163,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       onTap: () {},
                     ),
                     _NavIcon(
-                      label: 'Fines',
-                      asset: 'fines_and_payments',
+                      label: 'Help', // ← label fixed
+                      asset: 'help', // ← uses images/help.png
                       isSelected: false,
                       onTap: () => Navigator.pushReplacement(
                         context,
@@ -174,34 +176,39 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
                 const SizedBox(height: 24),
 
-                // 1) Outbreak Status (same logic)
-                _OutbreakStatusFromMohActions(
-                  mohArea: _mohArea,
-                  colorFor: _statusColor,
-                ),
+                // Render analytics only after profile is loaded (no blink)
+                if (_ready) ...[
+                  // 1) Outbreak Status
+                  _OutbreakStatusFromMohActions(
+                    mohArea: _mohArea,
+                    colorFor: _statusColor,
+                  ),
+                  const SizedBox(height: 16),
 
-                const SizedBox(height: 16),
+                  // 2) KPIs (area + national)
+                  _KpisAreaAndNational(
+                    mohArea: _mohArea,
+                    rangeDays: _rangeDays,
+                  ),
+                  const SizedBox(height: 16),
 
-                // 2) KPIs (UPDATED: cases in my area + cases in Sri Lanka)
-                _KpisAreaAndNational(mohArea: _mohArea, rangeDays: _rangeDays),
+                  // 3) Trend chart
+                  _TrendFromMohActions(
+                    mohArea: _mohArea,
+                    rangeDays: _rangeDays,
+                    showMA: _showMA,
+                    onRangeChanged: (d) => setState(() => _rangeDays = d),
+                    onMAChanged: (v) => setState(() => _showMA = v),
+                  ),
+                  const SizedBox(height: 16),
 
-                const SizedBox(height: 16),
-
-                // 3) Trend: Daily New Cases (FIXED styling)
-                _TrendFromMohActions(
-                  mohArea: _mohArea,
-                  rangeDays: _rangeDays,
-                  showMA: _showMA,
-                  onRangeChanged: (d) => setState(() => _rangeDays = d),
-                  onMAChanged: (v) => setState(() => _showMA = v),
-                ),
-
-                const SizedBox(height: 16),
-
-                // 4) Advisory (text only)
-                _AdvisoryCard(mohArea: _mohArea),
-
-                const SizedBox(height: 24),
+                  // 4) Advisory
+                  _AdvisoryCard(mohArea: _mohArea),
+                  const SizedBox(height: 24),
+                ] else ...[
+                  // keep layout stable while loading (optional)
+                  const SizedBox(height: 1),
+                ],
               ],
             ),
           ),
@@ -212,9 +219,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 }
 
 // ---------------------------------------------------------
-// OUTBREAK (unchanged logic)
-// ---------------------------------------------------------
 // OUTBREAK — clearer & larger layout
+// ---------------------------------------------------------
 class _OutbreakStatusFromMohActions extends StatelessWidget {
   final String? mohArea;
   final Color Function(String) colorFor;
@@ -470,9 +476,7 @@ class _MetricBox extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// KPIs (UPDATED):
-//   - Cases in my area (last X days)
-//   - Cases in Sri Lanka (all-time)
+// KPIs: Cases in my area (last X days) + National total
 // ---------------------------------------------------------
 class _KpisAreaAndNational extends StatelessWidget {
   final String? mohArea;
@@ -501,9 +505,9 @@ class _KpisAreaAndNational extends StatelessWidget {
           'date_of_admission',
           isGreaterThanOrEqualTo: Timestamp.fromDate(start),
         )
-        .orderBy('date_of_admission'); // <- needs the composite index
+        .orderBy('date_of_admission'); // composite index
 
-    // Sri Lanka total (all-time) – aggregate count
+    // Sri Lanka total (all-time)
     final nationalCountQ = FirebaseFirestore.instance
         .collection('moh_actions')
         .where('action', isEqualTo: 'new_case')
@@ -546,7 +550,7 @@ class _KpisAreaAndNational extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// TREND (FIXED look & ticks)
+// TREND
 // ---------------------------------------------------------
 class _TrendFromMohActions extends StatelessWidget {
   final String? mohArea;
@@ -674,8 +678,8 @@ class _TrendFromMohActions extends StatelessWidget {
                 minX: 0,
                 maxX: (rangeDays - 1).toDouble(),
                 minY: 0,
-                maxY: paddedMaxY, // <- padding so tall spikes look good
-                clipData: const FlClipData.all(), // avoid overdraw on edges
+                maxY: paddedMaxY, // padding so tall spikes look good
+                clipData: const FlClipData.all(),
                 lineTouchData: LineTouchData(
                   enabled: true,
                   touchTooltipData: LineTouchTooltipData(
@@ -721,7 +725,7 @@ class _TrendFromMohActions extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 32, // more space so labels don’t collide
+                      reservedSize: 32,
                       interval: (rangeDays / 4)
                           .floorToDouble()
                           .clamp(1, 999)
@@ -762,7 +766,7 @@ class _TrendFromMohActions extends StatelessWidget {
                 ),
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
-                  // main series with gradient fill
+                  // main series
                   LineChartBarData(
                     spots: spots,
                     isCurved: true,
@@ -1046,6 +1050,93 @@ class _NavIcon extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ===== Profile menu (same pattern used elsewhere) =====
+enum _ProfileAction { edit, signOut }
+
+Future<void> _signOutAndGoToLogin(BuildContext context) async {
+  try {
+    await FirebaseAuth.instance.signOut();
+  } catch (_) {}
+  if (context.mounted) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const SignInPage()),
+      (_) => false,
+    );
+  }
+}
+
+class _ProfileMenu extends StatelessWidget {
+  final VoidCallback onEdit;
+  final VoidCallback onSignOut;
+
+  const _ProfileMenu({required this.onEdit, required this.onSignOut});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_ProfileAction>(
+      tooltip: 'Profile menu',
+      offset: const Offset(0, 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFF2C2C35)),
+      ),
+      elevation: 6,
+      color: const Color(0xFF16161C),
+      icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+      itemBuilder: (context) => [
+        PopupMenuItem<_ProfileAction>(
+          value: _ProfileAction.edit,
+          padding: EdgeInsets.zero,
+          child: ListTile(
+            leading: const Icon(Icons.edit_outlined, color: Colors.white),
+            title: const Text(
+              'Edit Profile',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: const Text(
+              'Update your details',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ),
+        const PopupMenuDivider(height: 6),
+        PopupMenuItem<_ProfileAction>(
+          value: _ProfileAction.signOut,
+          padding: EdgeInsets.zero,
+          child: ListTile(
+            leading: const Icon(Icons.logout_rounded, color: Color(0xFFFF6B6B)),
+            title: const Text(
+              'Sign out',
+              style: TextStyle(
+                color: Color(0xFFFF6B6B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: const Text(
+              'See you soon! 👋',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ),
+      ],
+      onSelected: (value) {
+        switch (value) {
+          case _ProfileAction.edit:
+            onEdit();
+            break;
+          case _ProfileAction.signOut:
+            onSignOut();
+            break;
+        }
+      },
     );
   }
 }

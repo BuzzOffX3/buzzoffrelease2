@@ -58,6 +58,9 @@ class _MapsPageState extends State<MapsPage> {
   // cache: address/adress string -> LatLng (avoid re-geocoding)
   final Map<String, LatLng> _geoCache = {};
 
+  // guard so we don't keep recentring on every stream frame
+  bool _didInitialCenter = false;
+
   @override
   void initState() {
     super.initState();
@@ -104,6 +107,7 @@ class _MapsPageState extends State<MapsPage> {
         .get();
     if (!doc.exists) return;
     final data = doc.data();
+    if (!mounted) return;
     setState(() => _username = (data?['username'] as String?) ?? 'User');
 
     // read address/adress
@@ -111,6 +115,7 @@ class _MapsPageState extends State<MapsPage> {
     if (addrRaw != null && addrRaw.trim().isNotEmpty) {
       _profileAddress = addrRaw.trim();
       final p = await _geocodeAddress(_profileAddress!);
+      if (!mounted) return;
       setState(() {
         _addrLatLng = p;
         _addrGeocodeFailed = p == null;
@@ -388,12 +393,17 @@ class _MapsPageState extends State<MapsPage> {
           ),
         );
 
-        // Ensure initial camera centers to the active source
-        Future<void>.microtask(() async {
-          if (_mapCtrl != null) {
-            await _mapCtrl!.moveCamera(CameraUpdate.newLatLngZoom(myPos, 14.5));
-          }
-        });
+        // Ensure initial camera centers to the active source ONCE
+        if (_mapCtrl != null && !_didInitialCenter) {
+          scheduleMicrotask(() async {
+            if (_mapCtrl != null) {
+              await _mapCtrl!.moveCamera(
+                CameraUpdate.newLatLngZoom(myPos, 14.5),
+              );
+              _didInitialCenter = true;
+            }
+          });
+        }
 
         if (hasError) {
           bannerMsg = 'Failed to load dengue cases.';
@@ -464,19 +474,22 @@ class _MapsPageState extends State<MapsPage> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: GoogleMap(
-                      initialCameraPosition: camPos,
-                      myLocationEnabled: !_useProfileAddress, // only when GPS
-                      myLocationButtonEnabled: false,
-                      compassEnabled: true,
-                      zoomGesturesEnabled: true,
-                      zoomControlsEnabled: false, // custom buttons below
-                      markers: markers,
-                      circles: circles,
-                      mapToolbarEnabled: false,
-                      onMapCreated: (c) async {
-                        _mapCtrl = c;
-                      },
+                    child: ExcludeSemantics(
+                      // FIX: stop semantics churn
+                      child: GoogleMap(
+                        initialCameraPosition: camPos,
+                        myLocationEnabled: !_useProfileAddress, // only when GPS
+                        myLocationButtonEnabled: false,
+                        compassEnabled: true,
+                        zoomGesturesEnabled: true,
+                        zoomControlsEnabled: false, // custom buttons below
+                        markers: markers,
+                        circles: circles,
+                        mapToolbarEnabled: false,
+                        onMapCreated: (c) async {
+                          _mapCtrl = c;
+                        },
+                      ),
                     ),
                   ),
 
@@ -545,19 +558,22 @@ class _MapsPageState extends State<MapsPage> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: GoogleMap(
-                initialCameraPosition: camPos,
-                myLocationEnabled: !_useProfileAddress,
-                myLocationButtonEnabled: false,
-                compassEnabled: true,
-                zoomGesturesEnabled: true,
-                zoomControlsEnabled: false,
-                markers: markers,
-                circles: circles,
-                mapToolbarEnabled: false,
-                onMapCreated: (c) async {
-                  _mapCtrl = c;
-                },
+              child: ExcludeSemantics(
+                // FIX: stop semantics churn
+                child: GoogleMap(
+                  initialCameraPosition: camPos,
+                  myLocationEnabled: !_useProfileAddress,
+                  myLocationButtonEnabled: false,
+                  compassEnabled: true,
+                  zoomGesturesEnabled: true,
+                  zoomControlsEnabled: false,
+                  markers: markers,
+                  circles: circles,
+                  mapToolbarEnabled: false,
+                  onMapCreated: (c) async {
+                    _mapCtrl = c;
+                  },
+                ),
               ),
             ),
             Positioned(
@@ -761,8 +777,9 @@ class _MapsPageState extends State<MapsPage> {
             int cross = 1;
             if (constraints.maxWidth >= 1000) {
               cross = 3;
-            } else if (constraints.maxWidth >= 650)
+            } else if (constraints.maxWidth >= 650) {
               cross = 2;
+            }
 
             return Container(
               decoration: BoxDecoration(
@@ -817,148 +834,157 @@ class _MapsPageState extends State<MapsPage> {
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Top row: date + status chip
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _fmt(ts),
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: statusBg,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        status,
-                                        style: TextStyle(
-                                          color: statusFg,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                // Description
-                                Text(
-                                  desc.isEmpty
-                                      ? 'No description provided'
-                                      : desc,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                // Meta
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.location_on_outlined,
-                                      size: 16,
-                                      color: Colors.white54,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        loc.toString(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Top row: date + status chip
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        _fmt(ts),
                                         style: const TextStyle(
                                           color: Colors.white70,
                                           fontSize: 12,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.local_hospital_outlined,
-                                      size: 16,
-                                      color: Colors.white54,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        moh,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
                                         ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const Spacer(),
-                                // Actions
-                                Row(
-                                  children: [
-                                    if (imageUrl != null)
-                                      TextButton.icon(
-                                        onPressed: () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (_) => Dialog(
-                                              backgroundColor: Colors.black,
-                                              child: InteractiveViewer(
-                                                child: Image.network(
-                                                  imageUrl,
-                                                  fit: BoxFit.contain,
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        icon: const Icon(
-                                          Icons.image_outlined,
-                                          color: Colors.white,
-                                          size: 18,
-                                        ),
-                                        label: const Text(
-                                          'View Image',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
+                                        decoration: BoxDecoration(
+                                          color: statusBg,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
                                           ),
                                         ),
-                                      )
-                                    else
-                                      const Text(
-                                        'No image',
-                                        style: TextStyle(
-                                          color: Colors.white38,
-                                          fontSize: 12,
+                                        child: Text(
+                                          status,
+                                          style: TextStyle(
+                                            color: statusFg,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  // Description
+                                  Text(
+                                    desc.isEmpty
+                                        ? 'No description provided'
+                                        : desc,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  // Meta
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.location_on_outlined,
+                                        size: 16,
+                                        color: Colors.white54,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          loc.toString(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.local_hospital_outlined,
+                                        size: 16,
+                                        color: Colors.white54,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          moh,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(
+                                    height: 8,
+                                  ), // FIX: instead of Spacer()
+                                  // Actions
+                                  Row(
+                                    children: [
+                                      if (imageUrl != null)
+                                        TextButton.icon(
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (_) => Dialog(
+                                                backgroundColor: Colors.black,
+                                                child: InteractiveViewer(
+                                                  child: Image.network(
+                                                    imageUrl,
+                                                    fit: BoxFit.contain,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.image_outlined,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                          label: const Text(
+                                            'View Image',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        const Text(
+                                          'No image',
+                                          style: TextStyle(
+                                            color: Colors.white38,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1101,6 +1127,7 @@ class _MapsPageState extends State<MapsPage> {
                         _profileAddress != null &&
                         !_addrGeocodeFailed) {
                       final p = await _geocodeAddress(_profileAddress!);
+                      if (!mounted) return;
                       setState(() {
                         _addrLatLng = p;
                         _addrGeocodeFailed = p == null;
